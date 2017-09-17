@@ -18,6 +18,7 @@ package com.google.android.gms.samples.vision.face.facetracker;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.view.MotionEvent;
 
 import com.google.android.gms.samples.vision.face.facetracker.ui.camera.GraphicOverlay;
 import com.google.android.gms.vision.face.Face;
@@ -119,4 +120,5 @@ class FaceGraphic extends GraphicOverlay.Graphic {
       //  canvas.drawRect(left, top, right, bottom, mBoxPaint);
         */
     }
+
 }

@@ -21,14 +21,10 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.ImageFormat;
-import android.graphics.Rect;
-import android.graphics.YuvImage;
 import android.os.Bundle;
-import android.os.Environment;
+import android.os.Handler;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -36,7 +32,11 @@ import android.util.Log;
 import android.util.SparseArray;
 import android.view.View;
 
+import com.facebook.CallbackManager;
+import com.facebook.FacebookCallback;
+import com.facebook.FacebookException;
 import com.facebook.FacebookSdk;
+import com.facebook.login.LoginResult;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.vision.CameraSource;
@@ -49,13 +49,14 @@ import com.google.android.gms.vision.face.FaceDetector;
 import com.google.android.gms.samples.vision.face.facetracker.ui.camera.CameraSourcePreview;
 import com.google.android.gms.samples.vision.face.facetracker.ui.camera.GraphicOverlay;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Timer;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import clarifai2.api.ClarifaiBuilder;
@@ -66,22 +67,23 @@ import clarifai2.dto.model.output.ClarifaiOutput;
 import clarifai2.dto.prediction.Concept;
 import clarifai2.dto.prediction.Prediction;
 
-import android.content.Intent;
-import android.view.View;
-import android.widget.TextView;
+import android.widget.Button;
 
-import com.facebook.CallbackManager;
-import com.facebook.FacebookCallback;
-import com.facebook.FacebookException;
-import com.facebook.login.LoginResult;
 import com.facebook.login.widget.LoginButton;
+import com.microsoft.projectoxford.face.FaceServiceClient;
+import com.microsoft.projectoxford.face.FaceServiceRestClient;
+import com.microsoft.projectoxford.face.contract.AddPersistedFaceResult;
+import com.microsoft.projectoxford.face.contract.Candidate;
+import com.microsoft.projectoxford.face.contract.IdentifyResult;
+import com.microsoft.projectoxford.face.contract.Person;
+import com.microsoft.projectoxford.face.rest.ClientException;
 
 
 /**
  * Activity for the face tracker app.  This app detects faces with the rear facing camera, and draws
  * overlay graphics to indicate the position, size, and ID of each face.
  */
-public final class FaceTrackerActivity extends AppCompatActivity {
+public final class HackMitActivity extends AppCompatActivity {
     private static final String TAG = "FaceTracker";
     private static final String NON_NAME = "";
 
@@ -89,19 +91,27 @@ public final class FaceTrackerActivity extends AppCompatActivity {
 
     private CameraSourcePreview mPreview;
     private GraphicOverlay mGraphicOverlay;
+    private Button mViewUserButton;
 
-    private ClarifaiClient clarifaiClient;
+   //private ClarifaiClient clarifaiClient;
 
+   // private ClarifaiAddInputThread clarifaiAddInputThread;
+    public String predictedName = NON_NAME;
 
-    private static final String API_KEY = "dfa5c3b498ba409e867d23a5804a7914";
     private static final int RC_HANDLE_GMS = 9001;
     // permission request codes need to be < 256
     private static final int RC_HANDLE_CAMERA_PERM = 2;
+    public static final String VIEW_USER_MESSAGE = "com.lowjiansheng.MESSAGE";
+
+    private Intent connectToViewUserIntent;
 
     private LoginButton loginButton;
-    private ClarifaiAddInputThread clarifaiAddInputThread;
+    private CallbackManager callbackManager;
 
-    public String predictedName = NON_NAME;
+    private String MICROSOFT_FACE_API_KEY = "d08b80746a1d4d97b46e552c994c4f35";
+    public static final String uriBase = "https://westcentralus.api.cognitive.microsoft.com/face/v1.0";
+
+    private FaceServiceClient faceServiceClient;
 
     //==============================================================================================
     // Activity Methods
@@ -116,11 +126,40 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         super.onCreate(icicle);
         setContentView(R.layout.main);
 
+        mViewUserButton = (Button) findViewById(R.id.view_user);
         mPreview = (CameraSourcePreview) findViewById(R.id.preview);
         mGraphicOverlay = (GraphicOverlay) findViewById(R.id.faceOverlay);
 
-        clarifaiClient = new ClarifaiBuilder(API_KEY).buildSync();
+
         loginButton = (LoginButton) findViewById(R.id.login_button);
+        loginButton.setReadPermissions("email");
+
+        callbackManager = CallbackManager.Factory.create();
+
+        loginButton.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
+            @Override
+            public void onSuccess(LoginResult loginResult) {
+                System.out.println("Got here");
+            }
+
+            @Override
+            public void onCancel() {
+
+            }
+
+            @Override
+            public void onError(FacebookException error) {
+                System.out.println(error);
+            }
+        });
+
+        faceServiceClient =
+                new FaceServiceRestClient("https://westcentralus.api.cognitive.microsoft.com/face/v1.0",
+                        MICROSOFT_FACE_API_KEY);
+
+        mViewUserButton.setVisibility(View.INVISIBLE);
+
+       // clarifaiClient = new ClarifaiBuilder(API_KEY).buildSync();
 
         // Check for the camera permission before accessing the camera.  If the
         // permission is not granted yet, request permission.
@@ -130,31 +169,15 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         } else {
             requestCameraPermission();
         }
+        connectToViewUserIntent = new Intent(this, ConnectActivity.class);
 
-
-        loginButton.setReadPermissions("email");
-        CallbackManager callbackManager = CallbackManager.Factory.create();
-
-        // Callback registration
-
-        loginButton.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
+        mViewUserButton.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onSuccess(LoginResult loginResult) {
-
-            }
-
-            @Override
-            public void onCancel() {
-
-            }
-
-            @Override
-            public void onError(FacebookException exception) {
-                // App code
+            public void onClick(View view) {
+                // Start new intent and bring user to the next activity.
+                startActivity(connectToViewUserIntent);
             }
         });
-
-
     }
 
     /**
@@ -189,6 +212,13 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 .show();
     }
 
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        callbackManager.onActivityResult(requestCode, resultCode, data);
+    }
+
     /**
      * Creates and starts the camera.  Note that this uses a higher resolution in comparison
      * to other detection examples to enable the barcode detector to detect small barcodes
@@ -220,7 +250,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         }
 
         mCameraSource = new CameraSource.Builder(context, modifiedFaceDetector)
-                .setRequestedPreviewSize(1280, 720)
+                .setRequestedPreviewSize(800  , 600)
                 .setAutoFocusEnabled(true)
                 .setFacing(CameraSource.CAMERA_FACING_BACK)
                 .setRequestedFps(30.0f)
@@ -238,9 +268,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
 
         clarifaiPredictThread = new ClarifaiPredictThread();
         clarifaiPredictThread.start();
-        clarifaiAddInputThread = new ClarifaiAddInputThread();
-        clarifaiAddInputThread.start();
-
+       // clarifaiAddInputThread = new ClarifaiAddInputThread();
+       // clarifaiAddInputThread.start();
         startCameraSource();
     }
 
@@ -343,6 +372,25 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         }
     }
 
+    private void setButtonVisible(final boolean buttonVisible, final String text){
+
+        Handler mainHandler = new Handler(getApplicationContext().getMainLooper());
+        Runnable myRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (buttonVisible){
+                    mViewUserButton.setVisibility(View.VISIBLE);
+                    mViewUserButton.setText("Click to view " + text);
+                }
+                else {
+                    mViewUserButton.setVisibility(View.INVISIBLE);
+                    mViewUserButton.setText(text);
+                }
+            }
+        };
+        mainHandler.post(myRunnable);
+    }
+
     //==============================================================================================
     // Graphic Face Tracker
     //==============================================================================================
@@ -378,6 +426,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         public void onNewItem(int faceId, Face item) {
             mFaceGraphic.setId(faceId);
             mFaceGraphic.updateName(predictedName);
+            setButtonVisible(true, predictedName);
             final Face dupItem = item;
             mCameraSource.takePicture(null, new CameraSource.PictureCallback() {
                 @Override
@@ -395,6 +444,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             mOverlay.add(mFaceGraphic);
             mFaceGraphic.updateFace(face);
             mFaceGraphic.updateName(predictedName);
+            setButtonVisible(true, predictedName);
+            connectToViewUserIntent.putExtra(VIEW_USER_MESSAGE, predictedName);
         }
 
         /**
@@ -414,6 +465,9 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         @Override
         public void onDone() {
             mOverlay.remove(mFaceGraphic);
+            setButtonVisible(false, NON_NAME);
+            connectToViewUserIntent.removeExtra(VIEW_USER_MESSAGE);
+
         }
     }
     class ModifiedFaceDetector extends Detector<Face> {
@@ -450,7 +504,38 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         public void run() {
             while (true) {
                 if (!frames.isEmpty()) {
+
                     byte[] frame = frames.poll();
+                    ByteArrayInputStream bis = new ByteArrayInputStream(frame);
+                    DateFormat df = new SimpleDateFormat("dd/MM/yy HH:mm:ss");
+                    Date dateobj = new Date();
+                    com.microsoft.projectoxford.face.contract.Face[] faceId;
+                    UUID faceIdUUID;
+                    try{
+                        faceId = faceServiceClient.detect(bis, true, false, null);
+                     //   AddPersistedFaceResult result  = faceServiceClient.AddFaceToFaceList("hackmit_fd", bis, null, null);
+                      //  faceId = result.persistedFaceId;
+                        System.out.println(faceId);
+                        for (int j = 0 ; j < faceId.length; j++ ) {
+                            faceIdUUID = faceId[j].faceId;
+                            UUID[] faceIds = {faceIdUUID};
+                            IdentifyResult[] identifyResults = faceServiceClient.identity("friends", faceIds, 1);
+                            for (int i = 0 ; i < identifyResults.length; i++) {
+                                List<Candidate> candidates = identifyResults[i].candidates;
+                                for (int k = 0 ; k < candidates.size(); k++ ){
+                                    Person person = faceServiceClient.getPerson("friends", candidates.get(k).personId);
+                                    predictedName = person.name;
+                                }
+                            }
+                        }
+
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    } catch (ClientException e) {
+                        e.printStackTrace();
+                    }
+
+                    /*
                     ClarifaiResponse<List<ClarifaiOutput<Prediction>>> res = clarifaiClient
                             .predict("new friends").withInputs(ClarifaiInput.forImage(frame)).executeSync();
 
@@ -470,12 +555,14 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                                 predictedName = NON_NAME;
                             }
                             Input input = new Input(frame, predictedName);
-                            clarifaiAddInputThread.addInput(input);
+                            //clarifaiAddInputThread.addInput(input);
                         }
                     }
                     else {
                         System.out.println("Failed");
                     }
+                    */
+
                 }
             }
         }
@@ -497,10 +584,12 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             inputs.add(input);
         }
 
+        /*
         public void run(){
             while (true) {
                 if (!inputs.isEmpty()) {
                     Input input = inputs.poll();
+                    System.out.println("Adding inputs!");
                     clarifaiClient.addInputs()
                             .plus(ClarifaiInput.forImage(input.picture)
                             .withConcepts(
@@ -509,7 +598,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                             .executeSync();
                 }
             }
-        }
+        }*/
     }
 
 

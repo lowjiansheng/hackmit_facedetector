@@ -17,7 +17,9 @@ package com.google.android.gms.samples.vision.face.facetracker.ui.camera;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.PointF;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.View;
 
 import com.google.android.gms.vision.CameraSource;
@@ -183,4 +185,5 @@ public class GraphicOverlay extends View {
             }
         }
     }
+
 }
