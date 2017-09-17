@@ -23,6 +23,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
@@ -98,6 +99,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
     private static final int RC_HANDLE_CAMERA_PERM = 2;
 
     private LoginButton loginButton;
+    private ClarifaiAddInputThread clarifaiAddInputThread;
 
     public String predictedName = NON_NAME;
 
@@ -236,6 +238,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
 
         clarifaiPredictThread = new ClarifaiPredictThread();
         clarifaiPredictThread.start();
+        clarifaiAddInputThread = new ClarifaiAddInputThread();
+        clarifaiAddInputThread.start();
 
         startCameraSource();
     }
@@ -374,7 +378,13 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         public void onNewItem(int faceId, Face item) {
             mFaceGraphic.setId(faceId);
             mFaceGraphic.updateName(predictedName);
-            new TakePictureThread(item).start();
+            final Face dupItem = item;
+            mCameraSource.takePicture(null, new CameraSource.PictureCallback() {
+                @Override
+                public void onPictureTaken(byte[] bytes) {
+                    clarifaiPredictThread.addImage(bytes);
+                }
+            });
         }
 
         /**
@@ -459,7 +469,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                             if (max < 0.5) {
                                 predictedName = NON_NAME;
                             }
-                            System.out.println(predictedName);
+                            Input input = new Input(frame, predictedName);
+                            clarifaiAddInputThread.addInput(input);
                         }
                     }
                     else {
@@ -474,32 +485,41 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         }
     }
 
-    public class TakePictureThread extends Thread{
+    public class ClarifaiAddInputThread extends Thread{
 
-        final Face dupItem;
+        ConcurrentLinkedQueue<Input> inputs;
 
-        public TakePictureThread(Face item){
-            dupItem = item;
+        public ClarifaiAddInputThread(){
+            inputs = new ConcurrentLinkedQueue<>();
         }
 
-        @Override
+        public void addInput(Input input) {
+            inputs.add(input);
+        }
+
         public void run(){
-            if (mCameraSource != null){
-                mCameraSource.takePicture(null, new CameraSource.PictureCallback() {
-                    @Override
-                    public void onPictureTaken(byte[] bytes) {
-                        float width = dupItem.getWidth();
-                        float height = dupItem.getHeight();
-                        YuvImage yuvImage = new YuvImage(bytes, ImageFormat.NV21, (int)width, (int)height, null);
-                        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                        yuvImage.compressToJpeg(new Rect(0,0,(int)width, (int)height), 100, bos);
-                        byte[] jpegArray = bos.toByteArray();
-                        clarifaiPredictThread.addImage(jpegArray);
-                    }
-                });
+            while (true) {
+                if (!inputs.isEmpty()) {
+                    Input input = inputs.poll();
+                    clarifaiClient.addInputs()
+                            .plus(ClarifaiInput.forImage(input.picture)
+                            .withConcepts(
+                                    Concept.forName(input.concept)
+                            ))
+                            .executeSync();
+                }
             }
         }
-
     }
 
+
+    public class Input{
+        String concept;
+        byte[] picture;
+
+        public Input(byte[] picture, String concept){
+            this.picture = picture;
+            this.concept = concept;
+        }
+    }
 }
