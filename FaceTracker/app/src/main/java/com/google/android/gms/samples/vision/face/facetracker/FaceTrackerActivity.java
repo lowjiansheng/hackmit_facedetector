@@ -35,6 +35,7 @@ import android.util.Log;
 import android.util.SparseArray;
 import android.view.View;
 
+import com.facebook.FacebookSdk;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.vision.CameraSource;
@@ -64,6 +65,17 @@ import clarifai2.dto.model.output.ClarifaiOutput;
 import clarifai2.dto.prediction.Concept;
 import clarifai2.dto.prediction.Prediction;
 
+import android.content.Intent;
+import android.view.View;
+import android.widget.TextView;
+
+import com.facebook.CallbackManager;
+import com.facebook.FacebookCallback;
+import com.facebook.FacebookException;
+import com.facebook.login.LoginResult;
+import com.facebook.login.widget.LoginButton;
+
+
 /**
  * Activity for the face tracker app.  This app detects faces with the rear facing camera, and draws
  * overlay graphics to indicate the position, size, and ID of each face.
@@ -84,6 +96,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
     // permission request codes need to be < 256
     private static final int RC_HANDLE_CAMERA_PERM = 2;
 
+    private LoginButton loginButton;
+
     //==============================================================================================
     // Activity Methods
     //==============================================================================================
@@ -94,6 +108,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
+        FacebookSdk.sdkInitialize(getApplicationContext());
         setContentView(R.layout.main);
 
         mPreview = (CameraSourcePreview) findViewById(R.id.preview);
@@ -109,6 +124,27 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         }
 
         clarifaiClient = new ClarifaiBuilder(API_KEY).buildSync();
+        loginButton = (LoginButton) findViewById(R.id.login_button);
+        loginButton.setReadPermissions("email");
+        CallbackManager callbackManager = CallbackManager.Factory.create();
+
+        // Callback registration
+        loginButton.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
+            @Override
+            public void onSuccess(LoginResult loginResult) {
+
+            }
+
+            @Override
+            public void onCancel() {
+
+            }
+
+            @Override
+            public void onError(FacebookException exception) {
+                // App code
+            }
+        });
     }
 
     /**
