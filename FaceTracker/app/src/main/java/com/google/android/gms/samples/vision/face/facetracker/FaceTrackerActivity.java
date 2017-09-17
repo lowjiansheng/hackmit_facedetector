@@ -373,7 +373,22 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         @Override
         public void onNewItem(int faceId, Face item) {
             mFaceGraphic.setId(faceId);
+            final Face dupItem = item;
             mFaceGraphic.updateName(predictedName);
+            mCameraSource.takePicture(null, new CameraSource.PictureCallback(){
+                @Override
+                public void onPictureTaken(byte[] data){
+                    float width = dupItem.getWidth();
+                    float height = dupItem.getHeight();
+                    YuvImage yuvImage = new YuvImage(data, ImageFormat.NV21, (int)width, (int)height, null);
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    yuvImage.compressToJpeg(new Rect(0,0,(int)width, (int)height), 100, bos);
+                    byte[] jpegArray = bos.toByteArray();
+                    clarifaiPredictThread.addImage(jpegArray);
+                }
+
+            });
+
         }
 
         /**
@@ -415,6 +430,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
 
         @Override
         public SparseArray<Face> detect(Frame frame) {
+            /*
             ByteBuffer bb = frame.getGrayscaleImageData();
             SparseArray<Face> detectedFaces = mDelegate.detect(frame);
 
@@ -430,8 +446,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 clarifaiPredictThread.addImage(jpegArray);
                 System.out.println("added new frame");
             }
-
-            return detectedFaces;
+*/
+            return mDelegate.detect(frame);
         }
 
         public boolean isOperational() {
