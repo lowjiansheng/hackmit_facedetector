@@ -8,10 +8,20 @@
     android:layout_height="match_parent"
     android:keepScreenOn="true">
 
+
+  <com.facebook.login.widget.LoginButton
+      android:id="@+id/login_button"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_gravity="center_horizontal"
+      android:layout_marginBottom="30dp"
+      android:layout_marginTop="30dp" />
+
   <com.google.android.gms.samples.vision.face.facetracker.ui.camera.CameraSourcePreview
       android:id="@+id/preview"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content">
+
 
     <com.google.android.gms.samples.vision.face.facetracker.ui.camera.GraphicOverlay
         android:id="@+id/faceOverlay"
@@ -21,12 +31,7 @@
 
   </com.google.android.gms.samples.vision.face.facetracker.ui.camera.CameraSourcePreview>
 
-  <com.facebook.login.widget.LoginButton
-      android:id="@+id/login_button"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_gravity="center_horizontal"
-      android:layout_marginBottom="30dp"
-      android:layout_marginTop="30dp" />
+
+
 
 </LinearLayout>

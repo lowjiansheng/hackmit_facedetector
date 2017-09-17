@@ -82,6 +82,7 @@ import com.facebook.login.widget.LoginButton;
  */
 public final class FaceTrackerActivity extends AppCompatActivity {
     private static final String TAG = "FaceTracker";
+    private static final String NON_NAME = "";
 
     private CameraSource mCameraSource = null;
 
@@ -98,6 +99,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
 
     private LoginButton loginButton;
 
+    public String predictedName;
+
     //==============================================================================================
     // Activity Methods
     //==============================================================================================
@@ -107,12 +110,15 @@ public final class FaceTrackerActivity extends AppCompatActivity {
      */
     @Override
     public void onCreate(Bundle icicle) {
-        super.onCreate(icicle);
         FacebookSdk.sdkInitialize(getApplicationContext());
+        super.onCreate(icicle);
         setContentView(R.layout.main);
 
         mPreview = (CameraSourcePreview) findViewById(R.id.preview);
         mGraphicOverlay = (GraphicOverlay) findViewById(R.id.faceOverlay);
+
+        clarifaiClient = new ClarifaiBuilder(API_KEY).buildSync();
+        loginButton = (LoginButton) findViewById(R.id.login_button);
 
         // Check for the camera permission before accessing the camera.  If the
         // permission is not granted yet, request permission.
@@ -123,12 +129,12 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             requestCameraPermission();
         }
 
-        clarifaiClient = new ClarifaiBuilder(API_KEY).buildSync();
-        loginButton = (LoginButton) findViewById(R.id.login_button);
+
         loginButton.setReadPermissions("email");
         CallbackManager callbackManager = CallbackManager.Factory.create();
 
         // Callback registration
+
         loginButton.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
             @Override
             public void onSuccess(LoginResult loginResult) {
@@ -145,6 +151,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 // App code
             }
         });
+
+
     }
 
     /**
@@ -406,35 +414,23 @@ public final class FaceTrackerActivity extends AppCompatActivity {
            // this.boxHeight = boxHeight;
         }
 
-        boolean firstTime = true;
         @Override
         public SparseArray<Face> detect(Frame frame) {
             ByteBuffer bb = frame.getGrayscaleImageData();
             SparseArray<Face> detectedFaces = mDelegate.detect(frame);
 
             if (detectedFaces.size() != 0){
+
                 byte[] bytes = bb.array();
                 int width = frame.getMetadata().getWidth();
                 int height = frame.getMetadata().getHeight();
                 YuvImage yuvImage = new YuvImage(bytes, ImageFormat.NV21, width, height, null);
                 ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                yuvImage.compressToJpeg(new Rect(0,0,width,height), 10, bos);
+                yuvImage.compressToJpeg(new Rect(0,0,width,height), 100, bos);
                 byte[] jpegArray = bos.toByteArray();
-                if (firstTime) {
-                    firstTime = false;
-                    File photo = new File(Environment.getExternalStorageDirectory(), "photo.jpg");
-                    try {
-                        FileOutputStream fos = new FileOutputStream(photo.getPath());
-                        fos.write(jpegArray);
-                    } catch (FileNotFoundException e){
-                        e.printStackTrace();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
 
                 clarifaiPredictThread.addImage(jpegArray);
-
+                System.out.println("added new frame");
             }
 
             return detectedFaces;
@@ -463,15 +459,24 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 if (!frames.isEmpty()) {
                     byte[] frame = frames.poll();
                     ClarifaiResponse<List<ClarifaiOutput<Prediction>>> res = clarifaiClient
-                            .predict("Friends").withInputs(ClarifaiInput.forImage(frame)).executeSync();
+                            .predict("new friends").withInputs(ClarifaiInput.forImage(frame)).executeSync();
 
                     if (res.isSuccessful()){
                         List<ClarifaiOutput<Prediction>> results = res.get();
                         for (ClarifaiOutput<Prediction> result : results) {
                             List<Prediction> predictons = result.data();
+                            float max = 0;
+                            predictedName = NON_NAME;
                             for (Prediction prediction : predictons) {
-                                System.out.println(prediction);
+                                if (prediction.asConcept().value() > max) {
+                                    max = prediction.asConcept().value();
+                                    predictedName = prediction.asConcept().name();
+                                }
                             }
+                            if (max < 0.5) {
+                                predictedName = NON_NAME;
+                            }
+                            System.out.println(predictedName);
                         }
                     }
                     else {
