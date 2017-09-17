@@ -33,7 +33,7 @@ public class ConnectActivity extends AppCompatActivity {
         aboutView = (TextView) findViewById(R.id.about_me);
         emailView = (TextView) findViewById(R.id.email);
         text.setText(userName);
-        getFriendInformation();
+       // getFriendInformation();
     }
 
     private void getFriendInformation(){
