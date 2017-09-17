@@ -52,6 +52,8 @@ class FaceGraphic extends GraphicOverlay.Graphic {
     private int mFaceId;
     private float mFaceHappiness;
 
+    private String predictedName;
+
     FaceGraphic(GraphicOverlay overlay) {
         super(overlay);
 
@@ -85,6 +87,10 @@ class FaceGraphic extends GraphicOverlay.Graphic {
         postInvalidate();
     }
 
+    void updateName(String name) {
+        this.predictedName = name;
+    }
+
     /**
      * Draws the face annotations for position on the supplied canvas.
      */
@@ -100,6 +106,7 @@ class FaceGraphic extends GraphicOverlay.Graphic {
         float y = translateY(face.getPosition().y + face.getHeight() / 2);
         canvas.drawCircle(x, y, FACE_POSITION_RADIUS, mFacePositionPaint);
         canvas.drawText("id: " + mFaceId, x + ID_X_OFFSET, y + ID_Y_OFFSET, mIdPaint);
+        canvas.drawText(predictedName, x- ID_X_OFFSET, y - ID_Y_OFFSET, mIdPaint);
         //canvas.drawText("happiness: " + String.format("%.2f", face.getIsSmilingProbability()), x - ID_X_OFFSET, y - ID_Y_OFFSET, mIdPaint);
         //canvas.drawText("right eye: " + String.format("%.2f", face.getIsRightEyeOpenProbability()), x + ID_X_OFFSET * 2, y + ID_Y_OFFSET * 2, mIdPaint);
         //canvas.drawText("left eye: " + String.format("%.2f", face.getIsLeftEyeOpenProbability()), x - ID_X_OFFSET*2, y - ID_Y_OFFSET*2, mIdPaint);

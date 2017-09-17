@@ -99,7 +99,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
 
     private LoginButton loginButton;
 
-    public String predictedName;
+    public String predictedName = NON_NAME;
 
     //==============================================================================================
     // Activity Methods
@@ -373,6 +373,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         @Override
         public void onNewItem(int faceId, Face item) {
             mFaceGraphic.setId(faceId);
+            mFaceGraphic.updateName(predictedName);
         }
 
         /**
@@ -382,6 +383,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         public void onUpdate(FaceDetector.Detections<Face> detectionResults, Face face) {
             mOverlay.add(mFaceGraphic);
             mFaceGraphic.updateFace(face);
+            mFaceGraphic.updateName(predictedName);
         }
 
         /**
@@ -406,12 +408,9 @@ public final class FaceTrackerActivity extends AppCompatActivity {
     class ModifiedFaceDetector extends Detector<Face> {
 
         private Detector mDelegate;
-        //private int boxWidth, boxHeight;
 
         public ModifiedFaceDetector(Detector delegate){
             mDelegate = delegate;
-          //  this.boxWidth = boxWidth;
-           // this.boxHeight = boxHeight;
         }
 
         @Override
@@ -420,7 +419,6 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             SparseArray<Face> detectedFaces = mDelegate.detect(frame);
 
             if (detectedFaces.size() != 0){
-
                 byte[] bytes = bb.array();
                 int width = frame.getMetadata().getWidth();
                 int height = frame.getMetadata().getHeight();
