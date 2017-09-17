@@ -16,9 +16,11 @@ import org.json.JSONObject;
 public class ConnectActivity extends AppCompatActivity {
 
     TextView text;
+    TextView aboutView;
+    TextView emailView;
     private String about;
     private String birthday;
-    private 
+    private String email;
 
 
     @Override
@@ -28,6 +30,8 @@ public class ConnectActivity extends AppCompatActivity {
         Intent intent = getIntent();
         String userName = intent.getStringExtra(HackMitActivity.VIEW_USER_MESSAGE);
         text = (TextView) findViewById(R.id.user_name);
+        aboutView = (TextView) findViewById(R.id.about_me);
+        emailView = (TextView) findViewById(R.id.email);
         text.setText(userName);
         getFriendInformation();
     }
@@ -43,15 +47,17 @@ public class ConnectActivity extends AppCompatActivity {
             /* handle the result */
                         JSONObject object = response.getJSONObject();
                         try {
-                            object.getString("about");
+                            email = object.getString("email");
+                            emailView.setText(email);
+                            about = object.getString("about");
+                            aboutView.setText(about);
+                            birthday = object.getString("birthday");
                         } catch (JSONException e ){
                             e.printStackTrace();
                         }
-
                     }
                 }
         ).executeAsync();
     }
-
 
 }
