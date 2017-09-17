@@ -27,6 +27,7 @@ import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -48,6 +49,9 @@ import com.google.android.gms.samples.vision.face.facetracker.ui.camera.CameraSo
 import com.google.android.gms.samples.vision.face.facetracker.ui.camera.GraphicOverlay;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -396,16 +400,15 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         private Detector mDelegate;
         //private int boxWidth, boxHeight;
 
-
         public ModifiedFaceDetector(Detector delegate){
             mDelegate = delegate;
           //  this.boxWidth = boxWidth;
            // this.boxHeight = boxHeight;
         }
 
+        boolean firstTime = true;
         @Override
         public SparseArray<Face> detect(Frame frame) {
-
             ByteBuffer bb = frame.getGrayscaleImageData();
             SparseArray<Face> detectedFaces = mDelegate.detect(frame);
 
@@ -417,8 +420,20 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 ByteArrayOutputStream bos = new ByteArrayOutputStream();
                 yuvImage.compressToJpeg(new Rect(0,0,width,height), 10, bos);
                 byte[] jpegArray = bos.toByteArray();
+                if (firstTime) {
+                    firstTime = false;
+                    File photo = new File(Environment.getExternalStorageDirectory(), "photo.jpg");
+                    try {
+                        FileOutputStream fos = new FileOutputStream(photo.getPath());
+                        fos.write(jpegArray);
+                    } catch (FileNotFoundException e){
+                        e.printStackTrace();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
 
-                clarifaiPredictThread.addImage(bytes);
+                clarifaiPredictThread.addImage(jpegArray);
 
             }
 
@@ -447,16 +462,15 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             while (true) {
                 if (!frames.isEmpty()) {
                     byte[] frame = frames.poll();
-                    ClarifaiResponse<List<ClarifaiOutput<Concept>>> res = clarifaiClient.getDefaultModels().generalModel().predict()
-                            .withInputs(ClarifaiInput.forImage(frame))
-                            .executeSync();
+                    ClarifaiResponse<List<ClarifaiOutput<Prediction>>> res = clarifaiClient
+                            .predict("Friends").withInputs(ClarifaiInput.forImage(frame)).executeSync();
 
                     if (res.isSuccessful()){
-                        List<ClarifaiOutput<Concept>> results = res.get();
-                        for (ClarifaiOutput<Concept> result : results) {
-                            List<Concept> concepts = result.data();
-                            for (Concept concept : concepts) {
-                                System.out.println(concept);
+                        List<ClarifaiOutput<Prediction>> results = res.get();
+                        for (ClarifaiOutput<Prediction> result : results) {
+                            List<Prediction> predictons = result.data();
+                            for (Prediction prediction : predictons) {
+                                System.out.println(prediction);
                             }
                         }
                     }
