@@ -364,7 +364,6 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         private Detector mDelegate;
         //private int boxWidth, boxHeight;
 
-
         public ModifiedFaceDetector(Detector delegate){
             mDelegate = delegate;
           //  this.boxWidth = boxWidth;
@@ -374,7 +373,6 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         boolean firstTime = true;
         @Override
         public SparseArray<Face> detect(Frame frame) {
-
             ByteBuffer bb = frame.getGrayscaleImageData();
             SparseArray<Face> detectedFaces = mDelegate.detect(frame);
 
