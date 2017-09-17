@@ -2,7 +2,7 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 24
-    buildToolsVersion "24.0.2"
+    buildToolsVersion '25.0.0'
 
     defaultConfig {
         applicationId "com.google.android.gms.samples.vision.face.facetracker"
@@ -25,4 +25,5 @@ dependencies {
     compile 'com.android.support:design:24.2.0'
     compile 'com.google.android.gms:play-services-vision:9.4.0+'
     compile 'com.clarifai.clarifai-api2:core:2.2.12'
+    compile 'com.facebook.android:facebook-android-sdk:4.5.0'
 }
